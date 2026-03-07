@@ -1,13 +1,14 @@
 (function () {
   var canvas = $("#canvas");
+  var isMobile = window.matchMedia("(max-width: 768px)").matches;
+  var width = 1100;
+  var height = 680;
 
   if (!canvas[0].getContext) {
     $("#error").show();
     return false;
   }
 
-  var width = canvas.width();
-  var height = canvas.height();
   canvas.attr("width", width);
   canvas.attr("height", height);
   var opts = {
@@ -45,7 +46,7 @@
     },
     footer: {
       width: 1200,
-      height: 5,
+      height: isMobile ? 0 : 5,
       speed: 10,
     },
   };
@@ -55,14 +56,29 @@
   var foot = tree.footer;
   var hold = 1;
 
+  function drawFooter() {
+    if (!isMobile) {
+      foot.draw();
+    }
+  }
+
+  function getCanvasPoint(e) {
+    var rect = canvas[0].getBoundingClientRect();
+    var scaleX = width / rect.width;
+    var scaleY = height / rect.height;
+    var x = (e.clientX - rect.left) * scaleX;
+    var y = (e.clientY - rect.top) * scaleY;
+
+    return {
+      x: Math.max(0, Math.min(width - 1, Math.floor(x))),
+      y: Math.max(0, Math.min(height - 1, Math.floor(y))),
+    };
+  }
+
   canvas
     .click(function (e) {
-      var offset = canvas.offset(),
-        x,
-        y;
-      x = e.pageX - offset.left;
-      y = e.pageY - offset.top;
-      if (seed.hover(x, y)) {
+      var point = getCanvasPoint(e);
+      if (seed.hover(point.x, point.y)) {
         hold = 0;
         canvas.unbind("click");
         canvas.unbind("mousemove");
@@ -70,12 +86,8 @@
       }
     })
     .mousemove(function (e) {
-      var offset = canvas.offset(),
-        x,
-        y;
-      x = e.pageX - offset.left;
-      y = e.pageY - offset.top;
-      canvas.toggleClass("hand", seed.hover(x, y));
+      var point = getCanvasPoint(e);
+      canvas.toggleClass("hand", seed.hover(point.x, point.y));
     });
 
   var seedAnimate = eval(
@@ -90,7 +102,7 @@
       }
       while (seed.canMove()) {
         seed.move(0, 2);
-        foot.draw();
+        drawFooter();
         $await(Jscex.Async.sleep(10));
       }
     })
@@ -116,12 +128,17 @@
 
   var moveAnimate = eval(
     Jscex.compile("async", function () {
+      if (isMobile) {
+        tree.snapshot("p2", 240, 0, 610, 680);
+        return;
+      }
+
       tree.snapshot("p1", 240, 0, 610, 680);
       while (tree.move("p1", 500, 0)) {
-        foot.draw();
+        drawFooter();
         $await(Jscex.Async.sleep(10));
       }
-      foot.draw();
+      drawFooter();
       tree.snapshot("p2", 500, 0, 610, 680);
 
       canvas
@@ -138,8 +155,9 @@
       var ctx = tree.ctx;
       while (true) {
         tree.ctx.clearRect(0, 0, width, height);
+        tree.draw("p2");
         tree.jump();
-        foot.draw();
+        drawFooter();
         $await(Jscex.Async.sleep(25));
       }
     })
@@ -154,7 +172,9 @@
       // together.setSeconds(0);
       // together.setMilliseconds(0);
 
-      $("#code").show().typewriter();
+      $("#code").show().typewriter(function () {
+        $("#signoff").fadeIn(300);
+      });
       $("#clock-box").fadeIn(500);
       while (true) {
         timeElapse(together);
